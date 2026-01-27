@@ -73,7 +73,6 @@ in
   assert builtins.elem compositor ["sway" "gamescope"];
     dockerTools.buildLayeredImage {
       name = "steam";
-      created = "now";
       contents =
         [
           bash # used by wolf to run fake-udev commands
