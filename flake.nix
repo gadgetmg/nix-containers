@@ -26,7 +26,11 @@
           "steam:${steam.version}-sway-nixos${lib.version}" = callPackage ./packages/steam {};
           "steam:${steam.version}-nixos${lib.version}" = callPackage ./packages/steam {};
           "steam:${steam.version}" = callPackage ./packages/steam {};
+          "steam:sway" = callPackage ./packages/steam {};
           "steam:latest" = callPackage ./packages/steam {};
+
+          "steam:${steam.version}-gamescope-nixos${lib.version}" = callPackage ./packages/steam {compositor = "gamescope";};
+          "steam:gamescope" = callPackage ./packages/steam {compositor = "gamescope";};
         }
     ) {} [unstable stable];
 
