@@ -19,27 +19,27 @@
           # uses flake-level lib overlaying version information
           overlays = [(_: _: {inherit (channel) lib;})];
         };
-        inherit (pkgs) lib callPackage steam;
+        inherit (pkgs) lib callPackage;
+        buildVariants = imageName: mainPkg: builder: {
+          "${imageName}:${mainPkg.version}-sway-nixos${lib.version}" = callPackage builder {};
+          "${imageName}:${mainPkg.version}-nixos${lib.version}" = callPackage builder {};
+          "${imageName}:${mainPkg.version}" = callPackage builder {};
+          "${imageName}:sway" = callPackage builder {};
+          "${imageName}:latest" = callPackage builder {};
+          "${imageName}:${mainPkg.version}-gamescope-nixos${lib.version}" = callPackage builder {compositor = "gamescope";};
+          "${imageName}:gamescope" = callPackage builder {compositor = "gamescope";};
+        };
       in
         acc
-        // {
-          "steam:${steam.version}-sway-nixos${lib.version}" = callPackage ./packages/steam {};
-          "steam:${steam.version}-nixos${lib.version}" = callPackage ./packages/steam {};
-          "steam:${steam.version}" = callPackage ./packages/steam {};
-          "steam:sway" = callPackage ./packages/steam {};
-          "steam:latest" = callPackage ./packages/steam {};
-
-          "steam:${steam.version}-gamescope-nixos${lib.version}" = callPackage ./packages/steam {compositor = "gamescope";};
-          "steam:gamescope" = callPackage ./packages/steam {compositor = "gamescope";};
-        }
+        // (buildVariants "steam" pkgs.steam ./packages/steam)
+        // (buildVariants "retroarch" pkgs.retroarch-bare ./packages/retroarch)
     ) {} [unstable stable];
 
     devShells.x86_64-linux.default = let
       pkgs = stable.legacyPackages.x86_64-linux;
-      inherit (pkgs) mkShell just skopeo;
     in
-      mkShell {
-        buildInputs = [
+      pkgs.mkShell {
+        buildInputs = with pkgs; [
           just
           skopeo
         ];
