@@ -1,8 +1,8 @@
 {
-  steam,
   dockerTools,
-  callPackage,
-  compositor ? "sway",
+  gamesOnWhalesTools,
+  lib,
+  steam,
   ...
 }: let
   extraSwayConfig = ''
@@ -11,9 +11,10 @@
     for_window [app_id="steam_app_.*"] fullscreen enable
   '';
 in
-  callPackage ../build-gow-image {
-    name = "steam";
-    inherit compositor extraSwayConfig;
+  gamesOnWhalesTools.buildImages rec {
+    name = "ghcr.io/gadgetmg/steam";
+    pkg = steam;
+    cmd = "${lib.getExe pkg} -bigpicture";
     extraPkgs = [dockerTools.caCertificates];
-    runApp = "${steam}/bin/steam -bigpicture";
+    inherit extraSwayConfig;
   }
