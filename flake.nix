@@ -1,48 +1,41 @@
 {
   description = "Container images built with Nix";
-
   inputs = {
-    stable.url = "github:nixos/nixpkgs?ref=nixos-25.11";
-    unstable.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    pkgs-by-name-for-flake-parts.url = "github:drupol/pkgs-by-name-for-flake-parts";
+    nix2container.url = "github:nlewo/nix2container";
+    gadgetmg-pkgs.url = "github:gadgetmg/nix-packages";
   };
 
-  outputs = {
-    self,
-    stable,
-    unstable,
-  }: {
-    packages.x86_64-linux = builtins.foldl' (
-      acc: channel: let
-        pkgs = import channel {
-          system = "x86_64-linux";
-          config.allowUnfree = true;
-          # uses flake-level lib overlaying version information
-          overlays = [(_: _: {inherit (channel) lib;})];
-        };
-        inherit (pkgs) lib callPackage;
-        buildVariants = imageName: mainPkg: builder: {
-          "${imageName}:${mainPkg.version}-sway-nixos${lib.version}" = callPackage builder {};
-          "${imageName}:${mainPkg.version}-nixos${lib.version}" = callPackage builder {};
-          "${imageName}:${mainPkg.version}" = callPackage builder {};
-          "${imageName}:sway" = callPackage builder {};
-          "${imageName}:latest" = callPackage builder {};
-          "${imageName}:${mainPkg.version}-gamescope-nixos${lib.version}" = callPackage builder {compositor = "gamescope";};
-          "${imageName}:gamescope" = callPackage builder {compositor = "gamescope";};
-        };
-      in
-        acc
-        // (buildVariants "steam" pkgs.steam ./packages/steam)
-        // (buildVariants "retroarch" pkgs.retroarch-bare ./packages/retroarch)
-    ) {} [unstable stable];
+  outputs = inputs @ {flake-parts, ...}:
+    flake-parts.lib.mkFlake {inherit inputs;} (
+      _: {
+        systems = ["x86_64-linux"];
 
-    devShells.x86_64-linux.default = let
-      pkgs = stable.legacyPackages.x86_64-linux;
-    in
-      pkgs.mkShell {
-        buildInputs = with pkgs; [
-          just
-          skopeo
+        imports = [
+          inputs.pkgs-by-name-for-flake-parts.flakeModule
         ];
-      };
-  };
+
+        perSystem = {
+          system,
+          pkgs,
+          ...
+        }: {
+          _module.args.pkgs = import inputs.nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+            overlays = [
+              inputs.gadgetmg-pkgs.overlays.default
+              (_: _: {inherit (inputs.nixpkgs) lib;})
+              (_: _: {inherit (inputs.nix2container.packages.${system}) nix2container;})
+            ];
+          };
+          pkgsDirectory = ./pkgs;
+          devShells.default = pkgs.mkShell {
+            buildInputs = with pkgs; [just];
+          };
+        };
+      }
+    );
 }

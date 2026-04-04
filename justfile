@@ -1,14 +1,17 @@
 build IMAGE:
   nix build \#\"{{IMAGE}}\"
 
+copy-docker IMAGE: (build IMAGE)
+  nix run \#\"{{IMAGE}}\".copyToDockerDaemon
+
+copy-docker-all:
+  nix flake show --json | jq  -r '.packages."x86_64-linux"|keys[]' | xargs -P 0 -I {} just copy-docker {}
+
 login:
-  skopeo login --username "$REGISTRY_USER" --password "$REGISTRY_PASSWORD" "$REGISTRY"
+  docker login ghcr.io
 
-push IMAGE: login (build IMAGE)
-  skopeo copy --insecure-policy docker-archive://$(readlink result) docker://$REGISTRY/$REGISTRY_USER/{{IMAGE}}
+copy-registry IMAGE: (build IMAGE)
+  nix run \#\"{{IMAGE}}\".copyToRegistry
 
-push-all:
-  nix flake show --json | jq  '.packages."x86_64-linux"|keys[]' | xargs -I {} just push {}
-
-load IMAGE: (build IMAGE)
-  docker load -i result
+copy-registry-all:
+  nix flake show --json | jq  -r '.packages."x86_64-linux"|keys[]' | xargs -P 0 -I {} just copy-registry {}
