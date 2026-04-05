@@ -18,4 +18,4 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - run: just copy-registry-all
+      - run: nix develop --command just copy-registry-all
