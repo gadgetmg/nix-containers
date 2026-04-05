@@ -32,6 +32,7 @@
             ];
           };
           pkgsDirectory = ./pkgs;
+          pkgsNameSeparator = ".";
           devShells.default = pkgs.mkShell {
             buildInputs = with pkgs; [just jq];
           };
