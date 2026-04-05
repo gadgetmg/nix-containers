@@ -13,9 +13,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v6
-      - uses: cachix/install-nix-action@v31
-        with:
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: nixbuild/nix-quick-install-action@v34
       - uses: nix-community/cache-nix-action/restore@v6
         with:
           primary-key: ${{ runner.os }}
