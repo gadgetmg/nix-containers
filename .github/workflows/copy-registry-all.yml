@@ -16,15 +16,16 @@ jobs:
       - uses: cachix/install-nix-action@v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: nix-community/cache-nix-action/restore@v6
+        with:
+          primary-key: ${{ runner.os }}
+      - uses: nicknovitski/nix-develop@v1
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: nix-community/cache-nix-action/restore@v6
-        with:
-          primary-key: ${{ runner.os }}
-      - run: nix develop --command just copy-registry-all
+      - run: just copy-registry-all
       - if: always()
         uses: nix-community/cache-nix-action/save@v6
         with:
