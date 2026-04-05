@@ -26,6 +26,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - run: just copy-registry-all
       - if: always() && steps.nix-cache-restore.outputs.hit-primary-key != 'true'
-        uses: nix-community/cache-nix-action/save@v6
+        uses: nix-community/cache-nix-action/save@v7
         with:
           primary-key: ${{ steps.nix-cache-restore.outputs.primary-key }}
