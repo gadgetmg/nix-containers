@@ -43,11 +43,11 @@
         "pkgs-by-name-for-flake-parts": "pkgs-by-name-for-flake-parts"
       },
       "locked": {
-        "lastModified": 1775251427,
-        "narHash": "sha256-EeWDey5j4dSF61rYisWVgfqEjA7/A991cGiaRb821eo=",
+        "lastModified": 1777686214,
+        "narHash": "sha256-Ie0gqmj+0I2FNhgpuT9byL6+H2MZAVEMFAambYz9xuw=",
         "owner": "gadgetmg",
         "repo": "nix-packages",
-        "rev": "a970e97de2937b31c975df9a226aab5bf0279993",
+        "rev": "dc26e60a1eb8d2d762b76d95ff527e8501bab7b0",
         "type": "github"
       },
       "original": {
