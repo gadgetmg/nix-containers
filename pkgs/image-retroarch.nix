@@ -1,7 +1,6 @@
 {
   dockerTools,
   gamesOnWhalesTools,
-  lib,
   retroarch-bare,
   xdg-utils,
   xset,
@@ -11,9 +10,9 @@
     withGamemode = false;
   };
 in
-  gamesOnWhalesTools.buildImages rec {
+  gamesOnWhalesTools.buildImages {
     name = "ghcr.io/gadgetmg/retroarch";
     pkg = retroarch';
-    cmd = lib.getExe pkg;
+    Cmd = ["retroarch"];
     extraPkgs = [dockerTools.caCertificates xdg-utils xset];
   }

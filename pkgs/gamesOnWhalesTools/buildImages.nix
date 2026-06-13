@@ -2,48 +2,64 @@
   bash,
   buildEnv,
   coreutils,
+  dbus,
   dockerTools,
+  foot,
   gamescope,
-  gcc,
+  gnugrep,
   gosu,
   lib,
-  libx11,
-  libdrm,
-  libglvnd,
   libvdpau-va-gl,
-  libxcb,
-  libxshmfence,
+  makeDBusConf,
   mesa,
+  networkmanager,
   nix2container,
   pkgsi686Linux,
   procps,
   runCommand,
   sway,
-  vulkan-validation-layers,
-  wayland,
+  tini,
+  wmenu,
   writeShellScript,
-  zlib,
   imageSource ? "https://github.com/gadgetmg/nix-containers",
 }: {
   name,
   pkg,
-  cmd,
+  Cmd,
+  helperScript ? "",
   extraPkgs ? [],
   extraSwayConfig ? "",
 }: let
-  mesa-drivers = [mesa pkgsi686Linux.mesa];
-  mesa-glxindirect = runCommand "mesa_glxindirect" {} ''
-    mkdir -p $out/lib
-    ln -s ${mesa}/lib/libGLX_mesa.so.0 $out/lib/libGLX_indirect.so.0
-  '';
-  mesa-vulkan-icd = runCommand "mesa_icd" {} ''
-    ls ${mesa}/share/vulkan/icd.d/*.json > f
-    ls ${pkgsi686Linux.mesa}/share/vulkan/icd.d/*.json >> f
-    cat f | xargs | sed "s/ /:/g" > $out
-  '';
-  libvdpau-drivers = [libvdpau-va-gl pkgsi686Linux.libvdpau-va-gl];
+  opengl-driver = buildEnv {
+    name = "opengl-driver";
+    paths = [
+      mesa
+      libvdpau-va-gl
+      (
+        runCommand "mesa_glxindirect" {} ''
+          mkdir -p $out/lib
+          ln -s ${mesa}/lib/libGLX_mesa.so.0 $out/lib/libGLX_indirect.so.0
+        ''
+      )
+    ];
+  };
+  opengl-driver-32 = buildEnv {
+    name = "opengl-driver-32";
+    paths = [
+      pkgsi686Linux.mesa
+      pkgsi686Linux.libvdpau-va-gl
+      (
+        runCommand "mesa_glxindirect" {} ''
+          mkdir -p $out/lib
+          ln -s ${pkgsi686Linux.mesa}/lib/libGLX_mesa.so.0 $out/lib/libGLX_indirect.so.0
+        ''
+      )
+    ];
+  };
   setup = runCommand "setup" {} ''
-    mkdir -p $out/tmp $out/home/retro
+    mkdir -p $out/run/dbus $out/tmp $out/home/retro
+    ln -s ${opengl-driver} $out/run/opengl-driver
+    ln -s ${opengl-driver-32} $out/run/opengl-driver-32
   '';
   buildVariant = pkg: compositor: tag:
     nix2container.buildImage {
@@ -56,19 +72,36 @@
           paths =
             [
               setup
+              (buildEnv {
+                name = "dbus-conf";
+                paths = [makeDBusConf];
+                extraPrefix = "/etc/dbus-1";
+              })
               bash # used by wolf to run fake-udev commands
               coreutils # used by entrypoint script
+              gnugrep
+              dbus
+              networkmanager
               dockerTools.binSh # used by sway for exec commands
               (dockerTools.fakeNss.override {
-                extraPasswdLines = ["retro:x:1000:1000:new user:/home/retro:/bin/sh"];
-                extraGroupLines = ["retro:x:1000:"];
+                extraPasswdLines = [
+                  "retro:x:1000:1000::/home/retro:/bin/bash"
+                  "messagebus:x:1:1::/run/dbus:/bin/false"
+                ];
+                extraGroupLines = [
+                  "retro:x:1000:"
+                  "messagebus:x:1:"
+                ];
               })
               gosu # used to drop root
               procps # pkill
+              tini
+              gamescope
+              pkg
             ]
-            ++ (lib.optional (compositor == "sway") (sway.override {dbusSupport = false;}))
-            ++ (lib.optional (compositor == "gamescope") gamescope)
+            ++ lib.optionals (compositor == "sway") [sway foot wmenu]
             ++ extraPkgs;
+          ignoreCollisions = true;
         })
       ];
       perms = [
@@ -88,16 +121,13 @@
         }
       ];
       config = {
+        inherit Cmd;
         Entrypoint = [
+          "tini"
+          "--"
           (writeShellScript "entrypoint.sh" ''
-            # export vars for OpenGL / Vulkan
-            export __EGL_VENDOR_LIBRARY_FILENAMES=${mesa}/share/glvnd/egl_vendor.d/50_mesa.json:${pkgsi686Linux.mesa}/share/glvnd/egl_vendor.d/50_mesa.json
-            export GBM_BACKENDS_PATH=${lib.makeSearchPathOutput "lib" "lib/gbm" mesa-drivers}
-            export LIBGL_DRIVERS_PATH=${lib.makeSearchPathOutput "lib" "lib/dri" mesa-drivers}
-            export LIBVA_DRIVERS_PATH=${lib.makeSearchPathOutput "out" "lib/dri" mesa-drivers}
-            export VK_LAYER_PATH=${vulkan-validation-layers}/share/vulkan/explicit_layer.d
-            export VK_ICD_FILENAMES=''$(cat ${mesa-vulkan-icd})
-            export LD_LIBRARY_PATH=${lib.makeLibraryPath (mesa-drivers ++ libvdpau-drivers ++ [libglvnd zlib libdrm libx11 libxcb libxshmfence wayland gcc.cc])}:${lib.makeSearchPathOutput "lib" "lib/vdpau" libvdpau-drivers}:${mesa-glxindirect}/lib
+            # generate /etc/machine-id
+            (tr -dc 0-9a-f < /dev/urandom | head -c 32; echo) > /etc/machine-id
 
             ${
               lib.optionalString (compositor == "sway") ''
@@ -105,18 +135,26 @@
                 # configure sway
                 mkdir -p /home/retro/.config/sway
                 cat <<EOF >/home/retro/.config/sway/config
-                set \''$mod Mod4
+                include /etc/sway/config
                 output * resolution ''${GAMESCOPE_WIDTH}x''${GAMESCOPE_HEIGHT} position 0,0
-                bindsym \''$mod+f fullscreen
                 ${extraSwayConfig}
-                exec ${cmd} && pkill sway
+                exec $@ && pkill sway
                 EOF
               ''
             }
+            mkdir -p ''${XDG_RUNTIME_DIR}
             # set permissions
             chown -R retro:retro /home/retro ''${XDG_RUNTIME_DIR}
-
-            ${lib.optionalString (compositor == "sway") ''gosu retro sway'' + lib.optionalString (compositor == "gamescope") ''gosu retro gamescope --steam ''${GAMESCOPE_MODE} -W ''${GAMESCOPE_WIDTH} -H ''${GAMESCOPE_HEIGHT} ''$1 -- ${cmd}''}
+            # start dbus
+            dbus-daemon --system --fork 2>&1
+            # start networkmanager
+            NetworkManager
+            # start user dbus session
+            export $(gosu retro dbus-launch)
+            # start helper script
+            ${helperScript}
+            # launch compositor
+            gosu retro ${lib.optionalString (compositor == "sway") ''sway'' + lib.optionalString (compositor == "gamescope") ''gamescope -e --backend wayland ''${GAMESCOPE_MODE} -W ''${GAMESCOPE_WIDTH} -H ''${GAMESCOPE_HEIGHT} ''$1 -- $@''}
           '')
         ];
         Env = lib.flatten ([

@@ -2,7 +2,7 @@
   description = "Container images built with Nix";
   inputs = {
     flake-parts.url = "github:hercules-ci/flake-parts";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     pkgs-by-name-for-flake-parts.url = "github:drupol/pkgs-by-name-for-flake-parts";
     nix2container.url = "github:nlewo/nix2container";
     gadgetmg-pkgs.url = "github:gadgetmg/nix-packages";
