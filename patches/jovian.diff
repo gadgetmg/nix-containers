@@ -1,0 +1,106 @@
+diff --git a/modules/steam/default.nix b/modules/steam/default.nix
+index c9f42a33..5a16206f 100644
+--- a/modules/steam/default.nix
++++ b/modules/steam/default.nix
+@@ -11,6 +11,7 @@ in
+     ./steam.nix
+     ./autostart.nix
+     ./environment.nix
++    ./gamescope.nix
+     ./updater.nix
+   ];
+   options = {
+diff --git a/modules/steam/gamescope.nix b/modules/steam/gamescope.nix
+new file mode 100644
+index 00000000..b2f8a16f
+--- /dev/null
++++ b/modules/steam/gamescope.nix
+@@ -0,0 +1,42 @@
++{ config, lib, ... }:
++
++let
++  inherit (lib)
++    concatStringsSep
++    escapeShellArgs
++    mkIf
++    mkOption
++    optionals
++    types
++  ;
++
++  cfg = config.jovian.steam;
++in
++{
++  options = {
++    jovian.steam.gamescope = {
++      args = mkOption {
++        type = types.listOf types.str;
++        default = [];
++        description = ''
++          Arguments to be passed to GameScope for the session.
++
++          You can find the full set of available flags by running:
++
++          ```
++          $ gamescope --help
++          ```
++        '';
++        example = [ "--steam" ];
++      };
++    };
++  };
++
++  config = mkIf cfg.enable {
++    environment.etc."xdg/gamescope-session/environment" = {
++      text = lib.mkAfter ''
++        export JOVIAN_GAMESCOPE_ARGS="${escapeShellArgs cfg.gamescope.args}"
++      '';
++    };
++  };
++}
+diff --git a/pkgs/gamescope-session/default.nix b/pkgs/gamescope-session/default.nix
+index 7366e653..24edc051 100644
+--- a/pkgs/gamescope-session/default.nix
++++ b/pkgs/gamescope-session/default.nix
+@@ -124,6 +124,7 @@ in stdenv.mkDerivation(finalAttrs: {
+ 
+   patches = [
+     ./environment.patch
++    ./gamescope-args.patch
+     (replaceVars ./portals.patch {
+       gamescope-portals = symlinkJoin {
+         name = "gamescope-portals";
+diff --git a/pkgs/gamescope-session/gamescope-args.patch b/pkgs/gamescope-session/gamescope-args.patch
+new file mode 100644
+index 00000000..75d52620
+--- /dev/null
++++ b/pkgs/gamescope-session/gamescope-args.patch
+@@ -0,0 +1,28 @@
++--- a/gamescope-session
+++++ b/gamescope-session
++@@ -259,15 +259,15 @@
++ # Spawned in parallel to read values from gamescope
++ (read_gamescope_env &)
++ 
+++# Jovian: Load gamescope arguments
+++GAMESCOPE_ARGS=()
+++if [[ -n "${JOVIAN_GAMESCOPE_ARGS+x}" ]]; then
+++    if [[ -n "${JOVIAN_GAMESCOPE_ARGS}" ]]; then
+++        eval "JOVIAN_ARGS=(${JOVIAN_GAMESCOPE_ARGS})"
+++        GAMESCOPE_ARGS+=( "${JOVIAN_ARGS[@]}" )
+++    fi
+++fi
+++
++ exec gamescope \
++-	--generate-drm-mode fixed \
++-	--xwayland-count 2 \
++-	-w 1280 -h 800 \
++-	--default-touch-mode 4 \
++-	--hide-cursor-delay 3000 \
++-	--max-scale 2 \
++-	--fade-out-duration 200 \
++-	--cursor-scale-height 720 \
++-	-e -R "$socket" -T "$stats" \
++-	-O '*',eDP-1 \
+++	"${GAMESCOPE_ARGS[@]}" \
++ 

@@ -2,41 +2,27 @@
   description = "Container images built with Nix";
   inputs = {
     flake-parts.url = "github:hercules-ci/flake-parts";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
-    pkgs-by-name-for-flake-parts.url = "github:drupol/pkgs-by-name-for-flake-parts";
+    flake-input-patcher.url = "github:jfly/flake-input-patcher";
+    import-tree.url = "github:vic/import-tree";
+
     nix2container.url = "github:nlewo/nix2container";
+
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     gadgetmg-pkgs.url = "github:gadgetmg/nix-packages";
+    jovian.url = "github:Jovian-Experiments/Jovian-NixOS/development";
   };
 
-  outputs = inputs @ {flake-parts, ...}:
-    flake-parts.lib.mkFlake {inherit inputs;} (
-      _: {
-        systems = ["x86_64-linux"];
-
-        imports = [
-          inputs.pkgs-by-name-for-flake-parts.flakeModule
+  outputs = unpatchedInputs: let
+    inherit (unpatchedInputs.flake-input-patcher.lib.x86_64-linux) patch;
+    inputs = patch {
+      inherit unpatchedInputs;
+      flakePath = ./.;
+      patchSpec = {
+        jovian.patches = [
+          ./patches/jovian.diff
         ];
-
-        perSystem = {
-          system,
-          pkgs,
-          ...
-        }: {
-          _module.args.pkgs = import inputs.nixpkgs {
-            inherit system;
-            config.allowUnfree = true;
-            overlays = [
-              inputs.gadgetmg-pkgs.overlays.default
-              (_: _: {inherit (inputs.nixpkgs) lib;})
-              (_: _: {inherit (inputs.nix2container.packages.${system}) nix2container;})
-            ];
-          };
-          pkgsDirectory = ./pkgs;
-          pkgsNameSeparator = ".";
-          devShells.default = pkgs.mkShell {
-            buildInputs = with pkgs; [just jq];
-          };
-        };
-      }
-    );
+      };
+    };
+  in
+    inputs.flake-parts.lib.mkFlake {inherit inputs;} (inputs.import-tree [./modules]);
 }
