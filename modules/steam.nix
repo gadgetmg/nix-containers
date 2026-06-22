@@ -54,6 +54,7 @@
           };
         };
         services = {
+          tzupdate.enable = true;
           journald.console = "/dev/console";
           pipewire.enable = false;
         };
