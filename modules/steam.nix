@@ -18,11 +18,17 @@
         jovian = {
           steamos.useSteamOSConfig = false;
           steam = {
+            environment = {
+              ENABLE_GAMESCOPE_WSI = "0";
+            };
             enable = true;
             gamescope.args = [
               "--backend=wayland"
               "--generate-drm-mode=fixed"
               "--xwayland-count=2"
+              "--fullscreen"
+              "--grab"
+              "--force-grab-cursor"
               "--steam"
               "--ready-fd=\"$socket\""
               "--stats-path=\"$stats\""
