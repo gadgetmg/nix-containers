@@ -5,7 +5,12 @@
 }: {
   flake.nixosConfigurations.steam = inputs.nixpkgs.lib.nixosSystem {
     modules = [
-      ({pkgs, ...}: {
+      ({
+        config,
+        pkgs,
+        lib,
+        ...
+      }: {
         imports = [
           inputs.jovian.nixosModules.default
         ];
@@ -14,12 +19,19 @@
         nixpkgs = rec {
           hostPlatform.system = "x86_64-linux";
           pkgs = withSystem hostPlatform.system ({pkgs, ...}: pkgs);
+          overlays = [
+            inputs.nix-gaming-edge.overlays.proton-cachyos
+            (final: prev: {
+              steam = prev.steam.override {extraPkgs = pkgs: config.programs.steam.fontPackages;};
+            })
+          ];
         };
         jovian = {
           steamos.useSteamOSConfig = false;
           steam = {
             environment = {
               ENABLE_GAMESCOPE_WSI = "0";
+              STEAM_EXTRA_COMPAT_TOOLS_PATHS = lib.makeSearchPathOutput "steamcompattool" "" (with pkgs; [proton-ge-bin proton-cachyos-x86_64-v3]);
             };
             enable = true;
             gamescope.args = [
@@ -37,7 +49,7 @@
         };
         networking = {
           networkmanager.enable = true;
-          wireless.enable = pkgs.lib.mkForce false;
+          wireless.enable = lib.mkForce false;
           resolvconf.enable = false;
         };
         hardware.bluetooth.enable = false;
@@ -106,6 +118,7 @@
   perSystem = {
     inputs',
     pkgs,
+    lib,
     ...
   }: let
     buildImage = tag:
@@ -135,8 +148,8 @@
     tags = [
       "latest"
       "gamescope"
-      "nixos${pkgs.lib.version}"
-      "gamescope-nixos${pkgs.lib.version}"
+      "nixos${lib.version}"
+      "gamescope-nixos${lib.version}"
     ];
   in {
     packages = builtins.foldl' (acc: tag:

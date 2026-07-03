@@ -10,6 +10,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     gadgetmg-pkgs.url = "github:gadgetmg/nix-packages";
     jovian.url = "github:Jovian-Experiments/Jovian-NixOS/development";
+    nix-gaming-edge.url = "github:powerofthe69/nix-gaming-edge";
   };
 
   outputs = unpatchedInputs: let
